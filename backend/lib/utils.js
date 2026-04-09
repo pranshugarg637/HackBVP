@@ -1,6 +1,15 @@
 const jwt=require("jsonwebtoken");
+
+const getJwtSecret = () => {
+    if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET is missing in backend/.env");
+    }
+
+    return process.env.JWT_SECRET;
+}
+
 const genToken=(userId,res)=>{
-    const token=jwt.sign({userId},process.env.JWT_SECRET,
+    const token=jwt.sign({userId},getJwtSecret(),
         {expiresIn:"7d"}
     )
     res.cookie("jwt",token,{
@@ -8,4 +17,4 @@ const genToken=(userId,res)=>{
         httpOnly:true,
     })
 }
-module.exports={genToken};
+module.exports={genToken,getJwtSecret};

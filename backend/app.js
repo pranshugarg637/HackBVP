@@ -10,6 +10,7 @@ const Resume=require("./models/ResumeModel");
 const cookieParser=require("cookie-parser");
 app.use(cookieParser());
 const authRoutes=require("./routes/authRoutes");
+const resumeRoutes=require("./routes/resumeRoutes");
 const cors=require("cors");
 app.use(cors({
     origin:"http://localhost:5173",
@@ -31,6 +32,7 @@ main()
 //     res.send("Hello World");
 // })
 app.use("/api/auth",authRoutes);
+app.use("/api/resumes",resumeRoutes);
 
 app.listen(port,()=>{
     console.log("Listening to port");

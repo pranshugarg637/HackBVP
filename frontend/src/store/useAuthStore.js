@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 const getErrorMessage = (err, fallback) =>
     err.response?.data?.message || err.message || fallback;
 
-export const useAuthStore=create((set,get)=>({
+export const useAuthStore=create((set)=>({
     authUser:null,
     isCheckingAuth:true,
 
@@ -13,7 +13,7 @@ export const useAuthStore=create((set,get)=>({
         try{
             const res=await axiosInstance.get("/auth/check");
             set({authUser:res.data});
-        }catch(err){
+        }catch{
             set({authUser:null});
         }finally{
             set({isCheckingAuth:false});

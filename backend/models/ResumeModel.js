@@ -165,6 +165,11 @@ const resumeSchema = new mongoose.Schema(
       questions: [interviewQuestionSchema],
     },
 
+    weakSectionNotes: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+
     status: {
       type: String,
       enum: ["uploaded", "processing", "analyzed", "failed"],
