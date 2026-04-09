@@ -1,9 +1,9 @@
 import {create} from "zustand";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
-import axios from "axios";
 
-const BASE_URL=import.meta.env.MODE==="development"?"http://localhost:8000":"/";
+const getErrorMessage = (err, fallback) =>
+    err.response?.data?.message || err.message || fallback;
 
 export const useAuthStore=create((set,get)=>({
     authUser:null,
@@ -27,7 +27,7 @@ export const useAuthStore=create((set,get)=>({
             toast.success("Account created successfully");
         }catch(err){
             console.log(err);
-            toast.error(err.response.data.message);
+            toast.error(getErrorMessage(err,"Signup failed"));
         }finally{
             console.log("Signup Function");
         }
@@ -53,7 +53,7 @@ export const useAuthStore=create((set,get)=>({
             toast.success("Logged out succesfully");
         }catch(err){
             console.log(err);
-            toast.error(err.response.data.message);
+            toast.error(getErrorMessage(err,"Logout failed"));
         }finally{
             console.log("Logout function");
         }
@@ -61,12 +61,12 @@ export const useAuthStore=create((set,get)=>({
 
     updateProfile:async(data)=>{
         try{
-            const res=axiosInstance.put("/auth/update-profile",data);
+            const res=await axiosInstance.put("/auth/update-profile",data);
             set({authUser:res.data});
             toast.success("Profile updated succesfully");
         }catch(err){
             console.log(err);
-            toast.error(err.response.data.message);
+            toast.error(getErrorMessage(err,"Profile update failed"));
         }finally{
             console.log("Profile updation function");
         }
