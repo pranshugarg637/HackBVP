@@ -109,20 +109,26 @@ const getStatusClassName = (status) => {
   return "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300";
 };
 
+const formatSkillLabel = (value) =>
+  value
+    ?.split(" ")
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ");
+
 const EmptyState = ({ onAction }) => (
   <div className="glass-panel rounded-[28px] p-8 lg:p-10">
     <div className="max-w-2xl">
       <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold tracking-[0.24em] text-violet-700 uppercase">
         <Sparkles size={14} />
-        Mock analysis workflow
+        Resume-aware mock engine
       </p>
       <h2 className="headline-serif text-3xl text-slate-900 lg:text-4xl">
         Upload your resume details and generate a grounded ATS-style review.
       </h2>
       <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600">
-        This build avoids AI integration for the hackathon MVP. The backend creates deterministic mock analysis,
-        readiness scoring, weak section notes, and a 30-day roadmap after you upload a resume title and paste the
-        content you want evaluated.
+        This build avoids AI integration for the hackathon MVP. The backend now scores keywords, sections, projects,
+        and experience signals from each resume to generate relevant but slightly varied results, plus a 30-day
+        roadmap.
       </p>
       <button
         type="button"
@@ -227,6 +233,12 @@ const ResumeAnalysisPage = () => {
     section,
     notes: weakSectionNotes[section] || latestResume?.weakSectionNotes?.[section] || [],
   }));
+  const matchedSkills = latestResume?.jobMatchAnalysis?.matchedSkills || [];
+  const missingSkills = latestResume?.jobMatchAnalysis?.missingSkills || [];
+  const bulletSuggestions = latestResume?.resumeRewrite?.bulletSuggestions || [];
+  const interviewQuestions = latestResume?.interviewPrep?.questions || [];
+  const strengthNotes = latestResume?.atsAnalysis?.strengths || [];
+  const actionNotes = latestResume?.atsAnalysis?.suggestions || [];
 
   const showDashboard = activeSection === "dashboard";
   const showAnalyzer = activeSection === "analyzer";
@@ -364,8 +376,8 @@ const ResumeAnalysisPage = () => {
                   {latestResume ? "Welcome back to your analysis board" : "Build your first mock analysis"}
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                  Focus on ATS score, weak sections, and a practical roadmap. Everything here is powered by mock
-                  backend logic so the demo stays fully within the MERN stack.
+                  Focus on ATS score, weak sections, role match, and practical next steps. Everything here is powered
+                  by resume-aware backend logic within the MERN stack.
                 </p>
               </div>
 
@@ -611,7 +623,8 @@ const ResumeAnalysisPage = () => {
                       </button>
 
                       <p className="mt-4 text-xs leading-6 text-slate-500">
-                        This demo uses stored mock scoring logic after upload. No external AI service is called.
+                        Resume text drives keyword match, section quality, readiness, and seeded relevant variations.
+                        No external AI service is called.
                       </p>
                       </form>
                     )}
@@ -627,6 +640,66 @@ const ResumeAnalysisPage = () => {
                           >
                             <span className="text-sm font-medium text-slate-800">{role}</span>
                             <span className="text-sm text-slate-500">{92 - index * 11}% fit</span>
+                          </div>
+                        ))}
+                      </div>
+                      </div>
+                    )}
+
+                    {hasAnalysis && (showDashboard || showAnalyzer) && (
+                      <div className="glass-panel rounded-[28px] p-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-slate-500">Why this result changed</p>
+                          <h3 className="mt-2 text-xl font-semibold text-slate-900">Resume signals picked up</h3>
+                        </div>
+                        <div className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
+                          {latestResume?.jobMatchAnalysis?.roleMatchScore || 0}% role fit
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Matched skills</p>
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {matchedSkills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700"
+                            >
+                              {formatSkillLabel(skill)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Needs stronger proof</p>
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {missingSkills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700"
+                            >
+                              {formatSkillLabel(skill)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      </div>
+                    )}
+
+                    {hasAnalysis && (showDashboard || showAnalyzer) && (
+                      <div className="glass-panel rounded-[28px] p-6">
+                      <p className="text-sm text-slate-500">Strengths and next moves</p>
+                      <div className="mt-4 space-y-4">
+                        {strengthNotes.map((item) => (
+                          <div key={item} className="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-6 text-emerald-800">
+                            {item}
+                          </div>
+                        ))}
+                        {actionNotes.map((item) => (
+                          <div key={item} className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-700">
+                            {item}
                           </div>
                         ))}
                       </div>
@@ -662,6 +735,53 @@ const ResumeAnalysisPage = () => {
                       </div>
                       </div>
                     )}
+                  </div>
+                  </section>
+                )}
+
+                {hasAnalysis && (showDashboard || showAnalyzer) && (
+                  <section className="mt-8 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+                  <div className="glass-panel rounded-[28px] p-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm text-slate-500">Resume rewrite</p>
+                        <h3 className="mt-2 text-2xl font-semibold text-slate-900">Sharper summary and bullets</h3>
+                      </div>
+                      <div className="rounded-full bg-violet-100 px-3 py-1 text-sm font-medium text-violet-700">
+                        Tailored to {roleLabels[latestResume?.targetRole]}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 rounded-[24px] border border-violet-200 bg-violet-50 p-5">
+                      <p className="text-xs uppercase tracking-[0.24em] text-violet-700">Improved summary</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-700">{latestResume?.resumeRewrite?.improvedSummary}</p>
+                    </div>
+
+                    <div className="mt-5 space-y-4">
+                      {bulletSuggestions.map((item, index) => (
+                        <div key={`${item.original}-${index}`} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Original line</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">{item.original}</p>
+                          <p className="mt-4 text-xs uppercase tracking-[0.24em] text-violet-700">Suggested rewrite</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-800">{item.improved}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="glass-panel rounded-[28px] p-6">
+                    <p className="text-sm text-slate-500">Interview prep</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-slate-900">Questions you will likely get</h3>
+
+                    <div className="mt-5 space-y-4">
+                      {interviewQuestions.map((item) => (
+                        <div key={item.question} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                          <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">{item.category}</p>
+                          <p className="mt-3 text-base font-medium text-slate-900">{item.question}</p>
+                          <p className="mt-3 text-sm leading-6 text-slate-600">{item.answer}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   </section>
                 )}

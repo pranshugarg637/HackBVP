@@ -1,228 +1,473 @@
 const limit = (value, min, max) => Math.min(Math.max(value, min), max);
 
-const roleKeywords = {
-  sde: ["javascript", "react", "node", "express", "mongodb", "api", "git", "sql", "java", "python"],
-  "data analyst": [
-    "sql",
-    "excel",
-    "power bi",
-    "tableau",
-    "statistics",
-    "python",
-    "dashboard",
-    "analysis",
-    "visualization",
-    "reporting",
-  ],
-  "ml engineer": [
-    "python",
-    "tensorflow",
-    "pytorch",
-    "machine learning",
-    "statistics",
-    "data preprocessing",
-    "deployment",
-    "model",
-    "nlp",
-    "sql",
-  ],
+const roleConfig = {
+  sde: {
+    label: "SDE",
+    keywords: ["javascript", "react", "node", "express", "mongodb", "api", "git", "sql", "java", "python"],
+    projects: [
+      "Build a recruiter-friendly full-stack project with auth, dashboards, and role-based workflows.",
+      "Ship a performance-focused frontend case study with lighthouse improvements and responsive states.",
+      "Create a backend service with clean REST APIs, validation, and deployment notes.",
+      "Publish a developer portfolio with 2 strong projects, architecture notes, and GitHub links.",
+    ],
+    learning: [
+      "DSA revision",
+      "system design basics",
+      "testing and debugging",
+      "deployments",
+      "clean API design",
+    ],
+    interviewFocus: ["problem solving", "project walkthroughs", "tradeoff explanations", "debugging mindset"],
+  },
+  "data analyst": {
+    label: "Data Analyst",
+    keywords: [
+      "sql",
+      "excel",
+      "power bi",
+      "tableau",
+      "statistics",
+      "python",
+      "dashboard",
+      "analysis",
+      "visualization",
+      "reporting",
+    ],
+    projects: [
+      "Build a KPI dashboard with business questions, assumptions, and stakeholder insights.",
+      "Create an end-to-end SQL plus Excel analysis case study using messy operational data.",
+      "Publish a dashboard teardown showing metrics, trends, and recommendations.",
+      "Document a data-cleaning project with before-after quality improvements and charts.",
+    ],
+    learning: [
+      "SQL joins and window functions",
+      "dashboard storytelling",
+      "statistics refresh",
+      "business problem framing",
+      "Excel automation",
+    ],
+    interviewFocus: ["stakeholder communication", "metric design", "analysis framing", "storytelling with charts"],
+  },
+  "ml engineer": {
+    label: "ML Engineer",
+    keywords: [
+      "python",
+      "tensorflow",
+      "pytorch",
+      "machine learning",
+      "statistics",
+      "data preprocessing",
+      "deployment",
+      "model",
+      "nlp",
+      "sql",
+    ],
+    projects: [
+      "Build an ML project with clean data preprocessing, evaluation, and deployment notes.",
+      "Create a model comparison case study with metrics, tradeoffs, and failure analysis.",
+      "Ship a lightweight inference demo and document the production constraints.",
+      "Publish an end-to-end notebook showing feature engineering and model iteration.",
+    ],
+    learning: [
+      "model evaluation",
+      "feature engineering",
+      "ml deployment",
+      "experimentation tracking",
+      "data preprocessing",
+    ],
+    interviewFocus: ["model tradeoffs", "feature decisions", "evaluation metrics", "production readiness"],
+  },
 };
 
-const roleLabels = {
-  sde: "SDE",
-  "data analyst": "Data Analyst",
-  "ml engineer": "ML Engineer",
+const sectionPatterns = {
+  Skills: /skills|tech stack|technologies|tools/,
+  Projects: /projects|project experience|case study|portfolio/,
+  Experience: /experience|internship|work history|employment/,
+  Education: /education|coursework|university|college|b\.tech|btech/,
+  Profile: /github|linkedin|portfolio|https?:\/\//,
+};
+
+const suggestionLibrary = {
+  Skills: [
+    "Group tools by category so the recruiter can scan languages, frameworks, and platforms in one pass.",
+    "Promote your strongest stack to the first line of the skills section instead of burying it in project bullets.",
+    "Keep the skills block ATS-friendly by avoiding icons-only layouts and uncommon abbreviations.",
+  ],
+  Projects: [
+    "Lead each project bullet with the problem and outcome, not just the tech stack.",
+    "For your top project, mention scale, users, latency, accuracy, or efficiency gains if available.",
+    "Add one project that mirrors the target role more directly so relevance is obvious in the first 15 seconds.",
+  ],
+  Experience: [
+    "Replace responsibility-only bullets with action plus metric plus outcome phrasing.",
+    "Bring ownership words forward: built, automated, analyzed, designed, optimized, deployed.",
+    "Make one bullet explicitly about collaboration, stakeholder handling, or team impact.",
+  ],
+  Education: [
+    "Mention graduation year or expected graduation if you are early-career.",
+    "Add relevant coursework only if it strengthens the target role and does not crowd the page.",
+    "If experience is limited, use education projects to bridge credibility gaps.",
+  ],
+  Profile: [
+    "Put your GitHub or LinkedIn near the header so ATS and recruiters can find it immediately.",
+    "Use a short profile line that names your target role and strongest strengths.",
+    "Keep contact details text-based instead of image-based so ATS parsers can read them.",
+  ],
 };
 
 const addDotIfMissing = (text) => (text.endsWith(".") ? text : `${text}.`);
 
-const getMatchedKeywords = (text, keywords) => {
-  return keywords.filter((keyword) => text.includes(keyword.toLowerCase()));
-};
+const hashString = (value) => {
+  let hash = 2166136261;
 
-const getRoleScores = (text) => {
-  const scores = [];
-
-  for (const [role, keywords] of Object.entries(roleKeywords)) {
-    const matches = getMatchedKeywords(text, keywords);
-    const score = limit(Math.round((matches.length / keywords.length) * 100), 35, 95);
-
-    scores.push({
-      role,
-      label: roleLabels[role],
-      score,
-      matches,
-    });
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
   }
 
-  return scores.sort((a, b) => b.score - a.score);
+  return hash >>> 0;
 };
 
-const getWeakSections = (text) => {
+const createSeededRandom = (seedInput) => {
+  let state = hashString(seedInput) || 1;
+
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+};
+
+const unique = (items) => [...new Set(items)];
+
+const normalizeTokens = (text) => {
+  return unique(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9+#.\s/-]/g, " ")
+      .split(/\s+/)
+      .filter((token) => token.length > 2)
+  );
+};
+
+const countMatches = (text, phrase) => {
+  const safe = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`\\b${safe}\\b`, "g");
+  return (text.match(pattern) || []).length;
+};
+
+const getMatchedKeywords = (text, keywords) => {
+  return keywords
+    .map((keyword) => ({
+      keyword,
+      count: countMatches(text, keyword.toLowerCase()),
+    }))
+    .filter((item) => item.count > 0)
+    .sort((a, b) => b.count - a.count || a.keyword.localeCompare(b.keyword))
+    .map((item) => item.keyword);
+};
+
+const getRoleScores = (text, tokenSet) => {
+  return Object.entries(roleConfig)
+    .map(([role, config]) => {
+      const matches = getMatchedKeywords(text, config.keywords);
+      const tokenBonus = config.keywords.filter((keyword) => tokenSet.includes(keyword.split(" ")[0])).length;
+      const score = limit(Math.round(28 + matches.length * 8 + tokenBonus * 2), 35, 96);
+
+      return {
+        role,
+        label: config.label,
+        score,
+        matches,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+};
+
+const weightedSample = (items, count, random) => {
+  const pool = [...items];
+  const selected = [];
+
+  while (pool.length && selected.length < count) {
+    const totalWeight = pool.reduce((sum, item) => sum + item.weight, 0);
+    let threshold = random() * totalWeight;
+    let pickedIndex = pool.length - 1;
+
+    for (let index = 0; index < pool.length; index += 1) {
+      threshold -= pool[index].weight;
+
+      if (threshold <= 0) {
+        pickedIndex = index;
+        break;
+      }
+    }
+
+    selected.push(pool[pickedIndex].value);
+    pool.splice(pickedIndex, 1);
+  }
+
+  return selected;
+};
+
+const getResumeSignals = (rawText, lowerText) => {
+  const bulletCount = (rawText.match(/\n[-*]\s/g) || []).length + (rawText.match(/\u2022/g) || []).length;
+  const metricCount = (rawText.match(/\b\d+(?:\.\d+)?[%+x]?\b/g) || []).length;
+  const projectCount = (lowerText.match(/project/g) || []).length;
+  const experienceWords = (lowerText.match(/experience|internship|worked|built|developed|analyzed|designed/g) || []).length;
+  const experienceYearsMatch = lowerText.match(/(\d+)\+?\s*(?:years|yrs)/);
+  const experienceYears = experienceYearsMatch ? Number(experienceYearsMatch[1]) : 0;
+
+  return {
+    bulletCount,
+    metricCount,
+    projectCount,
+    experienceWords,
+    experienceYears,
+    wordCount: rawText.split(/\s+/).filter(Boolean).length,
+  };
+};
+
+const getWeakSections = (text, signals) => {
   const weakSections = [];
   const notesBySection = {};
 
-  const hasSkills = /skills|tech stack|technologies/.test(text);
-  const hasProjects = /projects|project experience/.test(text);
-  const hasExperience = /experience|internship|work history/.test(text);
-  const hasEducation = /education|coursework|university|college/.test(text);
-  const hasNumbers = /\b\d+[%+]?\b/.test(text);
-  const hasLinks = /github|linkedin|portfolio|https?:\/\//.test(text);
-
-  if (!hasSkills) {
+  if (!sectionPatterns.Skills.test(text)) {
     weakSections.push("Skills");
-    notesBySection.Skills = [
-      "Add a dedicated skills block with tools, languages, and platforms.",
-      "Group skills by category so recruiters can scan faster.",
-    ];
+    notesBySection.Skills = weightedSample(
+      suggestionLibrary.Skills.map((value, index) => ({ value, weight: 3 - index * 0.4 })),
+      2,
+      createSeededRandom(`skills-${text.length}`)
+    );
   }
 
-  if (!hasProjects) {
+  if (!sectionPatterns.Projects.test(text) || signals.projectCount < 2) {
     weakSections.push("Projects");
-    notesBySection.Projects = [
-      "Include 2 to 3 projects with stack, ownership, and measurable outcomes.",
-      "Add repository or demo links where possible.",
-    ];
+    notesBySection.Projects = weightedSample(
+      suggestionLibrary.Projects.map((value, index) => ({ value, weight: 3 - index * 0.4 })),
+      2,
+      createSeededRandom(`projects-${signals.projectCount}-${text.length}`)
+    );
   }
 
-  if (!hasExperience || !hasNumbers) {
+  if (!sectionPatterns.Experience.test(text) || signals.metricCount < 2) {
     weakSections.push("Experience");
-    notesBySection.Experience = [
-      "Rewrite experience bullets with numbers, impact, or time saved.",
-      "Highlight specific ownership instead of generic responsibilities.",
-    ];
+    notesBySection.Experience = weightedSample(
+      suggestionLibrary.Experience.map((value, index) => ({ value, weight: 3 - index * 0.4 })),
+      2,
+      createSeededRandom(`experience-${signals.metricCount}-${text.length}`)
+    );
   }
 
-  if (!hasEducation) {
+  if (!sectionPatterns.Education.test(text)) {
     weakSections.push("Education");
-    notesBySection.Education = [
-      "Add education details, graduation timeline, and relevant coursework.",
-      "Mention academic projects if they support the target role.",
-    ];
+    notesBySection.Education = weightedSample(
+      suggestionLibrary.Education.map((value, index) => ({ value, weight: 3 - index * 0.4 })),
+      2,
+      createSeededRandom(`education-${text.length}`)
+    );
   }
 
-  if (!hasLinks) {
+  if (!sectionPatterns.Profile.test(text)) {
     weakSections.push("Profile");
-    notesBySection.Profile = [
-      "Add LinkedIn, GitHub, or portfolio links for stronger credibility.",
-    ];
+    notesBySection.Profile = weightedSample(
+      suggestionLibrary.Profile.map((value, index) => ({ value, weight: 3 - index * 0.4 })),
+      2,
+      createSeededRandom(`profile-${text.length}`)
+    );
   }
 
   return { weakSections, notesBySection };
 };
 
-const getAtsIssues = (rawText) => {
-  const text = rawText.toLowerCase();
+const getAtsIssues = (rawText, lowerText, signals) => {
   const issues = [];
 
-  if (!/\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/.test(text)) {
-    issues.push("Missing a visible email address in the resume header");
+  if (!/\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/.test(lowerText)) {
+    issues.push("Missing a visible email address in the header.");
   }
 
-  if (!/(\+91|0)?[6-9]\d{9}|\b\d{10}\b/.test(text)) {
-    issues.push("Phone number is missing or difficult for ATS to detect");
+  if (!/(\+91|0)?[6-9]\d{9}|\b\d{10}\b/.test(lowerText)) {
+    issues.push("Phone number is missing or hard for ATS to detect.");
   }
 
-  if (!/skills|experience|projects|education/.test(text)) {
-    issues.push("Core resume section headings are weak or missing");
+  if (!/skills|experience|projects|education/.test(lowerText)) {
+    issues.push("Core section headings are weak or missing.");
   }
 
-  if (!/\n[-*]/.test(rawText) && !/\u2022/.test(rawText)) {
-    issues.push("Resume uses very few bullet points, which reduces scan clarity");
+  if (signals.bulletCount < 3) {
+    issues.push("Resume uses very few bullet points, so scan clarity drops.");
   }
 
-  if (!/\b\d+[%+]?\b/.test(text)) {
-    issues.push("Most bullets lack measurable outcomes or metrics");
+  if (signals.metricCount < 2) {
+    issues.push("Most bullets lack measurable outcomes or metrics.");
+  }
+
+  if (signals.wordCount < 120) {
+    issues.push("Resume content is too thin for strong ATS keyword coverage.");
   }
 
   return issues;
 };
 
-const getRoadmap = (targetRole, missingSkills) => {
-  const firstSkill = missingSkills[0] || "core role skills";
-  const secondSkill = missingSkills[1] || "project execution";
-  const thirdSkill = missingSkills[2] || "revision and mock interviews";
+const getTopMissingSkills = (config, matchedSkills, random) => {
+  const weighted = config.keywords
+    .filter((skill) => !matchedSkills.includes(skill))
+    .map((skill, index) => ({
+      value: skill,
+      weight: Math.max(1, config.keywords.length - index),
+    }));
+
+  return weightedSample(weighted, 4, random);
+};
+
+const buildSuggestions = (targetRole, missingSkills, signals, weakSections, random) => {
+  const config = roleConfig[targetRole];
+  const suggestionPool = [
+    ...missingSkills.map((skill, index) => ({
+      value: `Add stronger evidence of ${skill} through one project bullet or a dedicated skills mention.`,
+      weight: 6 - index,
+    })),
+    ...config.learning.map((topic, index) => ({
+      value: `Spend one focused revision block this week on ${topic}.`,
+      weight: 5 - index * 0.4,
+    })),
+    ...weakSections.map((section, index) => ({
+      value: `Rework the ${section.toLowerCase()} section so it looks intentional instead of filler content.`,
+      weight: 4 - index * 0.3,
+    })),
+    {
+      value:
+        signals.metricCount < 3
+          ? "Add metrics to at least 2 bullets so your impact is visible to both ATS and recruiters."
+          : "Keep your strongest quantified bullet near the top third of the resume.",
+      weight: 5,
+    },
+    {
+      value:
+        signals.experienceYears === 0
+          ? "If you are early-career, let projects carry more proof of ownership and outcomes."
+          : "Use your experience years strategically by naming ownership, scope, and outcomes together.",
+      weight: 4,
+    },
+  ];
+
+  return weightedSample(suggestionPool, 3, random);
+};
+
+const getRoadmap = (targetRole, missingSkills, random) => {
+  const config = roleConfig[targetRole];
+  const firstSkill = missingSkills[0] || config.learning[0];
+  const secondSkill = missingSkills[1] || config.learning[1];
+  const thirdSkill = missingSkills[2] || config.interviewFocus[0];
+  const projectIdea = weightedSample(
+    config.projects.map((value, index) => ({ value, weight: 5 - index * 0.5 })),
+    1,
+    random
+  )[0];
 
   return {
-    summary: `This 30-day plan is designed to move your ${roleLabels[targetRole] || "target role"} readiness forward with focused weekly milestones.`,
+    summary: `This 30-day plan pushes your ${config.label} profile toward a stronger shortlist by mixing skill-building, proof of work, and sharper positioning.`,
     steps: [
       {
         week: 1,
-        title: `Build foundations in ${firstSkill}`,
-        topics: [firstSkill, "terminology", "hands-on basics"],
+        title: `Strengthen ${firstSkill}`,
+        topics: [firstSkill, "resume positioning", "target-role vocabulary"],
         tasks: [
-          `Study the fundamentals of ${firstSkill}`,
-          "Take notes and create one-page revision material",
-          "Practice beginner-level exercises daily",
+          `Revise the basics of ${firstSkill} and note the most interview-relevant concepts.`,
+          "Update resume wording so your strongest matching keywords appear naturally in visible sections.",
+          "Rewrite one project or experience bullet with outcome-first phrasing.",
         ],
-        outcome: `You should be comfortable explaining and applying ${firstSkill} in simple scenarios.`,
+        outcome: `Your profile will sound more aligned to ${config.label} roles in both ATS and recruiter review.`,
       },
       {
         week: 2,
-        title: `Turn ${secondSkill} into proof`,
-        topics: [secondSkill, "portfolio framing", "resume-ready deliverables"],
+        title: "Create stronger proof of work",
+        topics: [secondSkill, "portfolio evidence", "deliverables"],
         tasks: [
-          `Build a small project that demonstrates ${secondSkill}`,
-          "Document your process, decisions, and measurable output",
-          "Publish the work to GitHub or a sharable folder",
+          projectIdea,
+          `Make ${secondSkill} visible through screenshots, GitHub notes, or short documentation.`,
+          "Add 2 measurable bullets from this work back into the resume.",
         ],
-        outcome: "You will have one concrete project that strengthens your resume story.",
+        outcome: "You will have stronger evidence instead of only listing skills.",
       },
       {
         week: 3,
-        title: "Sharpen practice and revision",
-        topics: [thirdSkill, "role-specific exercises", "feedback loops"],
+        title: "Sharpen story and confidence",
+        topics: [thirdSkill, "mock questions", "communication"],
         tasks: [
-          "Solve practice tasks for the target role",
-          "Refine weak resume bullets with stronger verbs and metrics",
-          "Review common ATS and recruiter screening expectations",
+          "Practice a 60-second introduction tailored to the role.",
+          "Prepare concise answers for project choices, tradeoffs, and outcomes.",
+          "Refine weak sections so each one earns space on the page.",
         ],
-        outcome: "Your profile becomes more interview-ready and easier to shortlist.",
+        outcome: "Your resume and verbal narrative will start supporting each other.",
       },
       {
         week: 4,
-        title: "Apply with confidence",
-        topics: ["applications", "tailoring", "follow-through"],
+        title: "Apply with a tighter loop",
+        topics: ["tailoring", "applications", "iteration"],
         tasks: [
-          "Tailor the resume for 5 to 10 real openings",
-          "Prepare a concise self-introduction and project pitch",
-          "Track applications and iterate based on responses",
+          "Tailor the resume for 5 to 10 openings with small keyword adjustments.",
+          "Track which roles feel strongest and which missing skills keep repeating.",
+          "Continue iterating based on recruiter expectations and interview feedback.",
         ],
-        outcome: "You end the month with a stronger resume, clearer direction, and active applications.",
+        outcome: "You finish with a better resume, sharper targeting, and an active application loop.",
       },
     ],
   };
 };
 
-const getBulletSuggestions = (rawText) => {
+const rewriteBullet = (line, targetRole, signals) => {
+  const label = roleConfig[targetRole].label;
+
+  if (/\b\d/.test(line)) {
+    return `Delivered ${label.toLowerCase()} work with clear ownership, stronger context, and better framing of the existing measurable result: ${line}`;
+  }
+
+  return `Built this into a stronger ${label} bullet by naming the problem, your contribution, the stack, and one measurable outcome or user impact.`;
+};
+
+const getBulletSuggestions = (rawText, targetRole, random) => {
   const lines = rawText
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 20)
-    .slice(0, 3);
+    .filter((line) => line.length > 24 && !/:$/.test(line))
+    .slice(0, 8);
 
-  return lines.map((line, index) => {
-    return {
-      original: line,
-      improved: `Led initiative ${index + 1} with clear ownership, delivered measurable progress, and improved team outcomes through structured execution.`,
-    };
-  });
+  const selected = weightedSample(
+    lines.map((value, index) => ({
+      value,
+      weight: Math.max(1, 8 - index),
+    })),
+    3,
+    random
+  );
+
+  return selected.map((line) => ({
+    original: line,
+    improved: rewriteBullet(line, targetRole),
+  }));
 };
 
-const getInterviewPrep = (targetRole, matchedSkills) => {
+const getInterviewPrep = (targetRole, matchedSkills, missingSkills) => {
+  const config = roleConfig[targetRole];
   const spotlightSkill = matchedSkills[0] || "your strongest project";
+  const growthSkill = missingSkills[0] || config.learning[0];
 
   return {
     questions: [
       {
         category: "Resume Walkthrough",
-        question: `Walk me through a project that best demonstrates your fit for a ${roleLabels[targetRole] || "target"} role.`,
-        answer: "Use a concise structure: problem, your role, stack, challenge, measurable result, and what you would improve next.",
+        question: `Walk me through the project that best proves your fit for a ${config.label} role.`,
+        answer: "Structure it as problem, your role, approach, stack, tradeoffs, measurable outcome, and what you would improve next.",
       },
       {
         category: "Skill Depth",
-        question: `How have you applied ${spotlightSkill} in practice?`,
-        answer: "Describe a specific implementation, the tradeoffs you made, and how the work impacted performance, speed, or clarity.",
+        question: `How have you used ${spotlightSkill} in practice rather than just listing it on the resume?`,
+        answer: "Explain one concrete implementation, why you chose that approach, and what changed because of it.",
+      },
+      {
+        category: "Growth Gap",
+        question: `What is your current plan to improve ${growthSkill}?`,
+        answer: "Show a realistic learning loop: what you are studying, how you are practicing it, and how it will become proof of work.",
       },
     ],
   };
@@ -231,35 +476,51 @@ const getInterviewPrep = (targetRole, matchedSkills) => {
 const generateResumeAnalysis = ({ fileName, resumeText, targetRole }) => {
   const rawText = `${resumeText || ""}`.trim();
   const lowerText = rawText.toLowerCase();
-
-  const roleScores = getRoleScores(lowerText);
-  const bestRole = roleScores.find((item) => item.role === targetRole) || roleScores[0];
-
-  const weakSectionData = getWeakSections(lowerText);
+  const tokenSet = normalizeTokens(rawText);
+  const roleScores = getRoleScores(lowerText, tokenSet);
+  const preferredRole = roleScores.find((item) => item.role === targetRole);
+  const bestRole = preferredRole || roleScores[0];
+  const config = roleConfig[bestRole.role];
+  const random = createSeededRandom(`${fileName || "resume"}|${bestRole.role}|${rawText}`);
+  const signals = getResumeSignals(rawText, lowerText);
+  const weakSectionData = getWeakSections(lowerText, signals);
   const weakSections = weakSectionData.weakSections;
   const notesBySection = weakSectionData.notesBySection;
-
-  const atsIssues = getAtsIssues(rawText);
+  const atsIssues = getAtsIssues(rawText, lowerText, signals);
   const matchedSkills = bestRole.matches.slice(0, 6);
-  const missingSkills = roleKeywords[bestRole.role]
-    .filter((skill) => !matchedSkills.includes(skill))
-    .slice(0, 4);
+  const missingSkills = getTopMissingSkills(config, matchedSkills, random);
 
   const atsScore = limit(
-    52 +
-      Math.min(rawText.length / 45, 15) +
-      matchedSkills.length * 4 -
+    44 +
+      matchedSkills.length * 5 +
+      Math.min(signals.wordCount / 35, 16) +
+      Math.min(signals.metricCount * 2.5, 9) +
+      Math.min(signals.bulletCount, 6) -
       weakSections.length * 3 -
       atsIssues.length * 2,
-    48,
-    92
+    46,
+    94
   );
 
   const readinessScore = limit(
-    Math.round(bestRole.score * 0.72 + atsScore * 0.28),
-    45,
-    93
+    Math.round(bestRole.score * 0.6 + atsScore * 0.25 + Math.min(signals.experienceYears * 3, 12) + matchedSkills.length * 1.5),
+    42,
+    95
   );
+
+  const strengths = [
+    `Resume aligns with ${matchedSkills.length} core ${config.label} keywords, led by ${matchedSkills.slice(0, 3).join(", ") || "foundational experience"}.`,
+    addDotIfMissing(
+      signals.metricCount >= 2
+        ? "You already have some quantified signals, which makes recruiter scanning easier"
+        : "The resume has the base ingredients, but quantified proof is still thin"
+    ),
+    addDotIfMissing(
+      signals.projectCount >= 2
+        ? "Project presence gives you useful material for both ATS and interviews"
+        : "One stronger project narrative could raise both relevance and confidence"
+    ),
+  ];
 
   return {
     fileName: fileName || "resume.pdf",
@@ -272,19 +533,8 @@ const generateResumeAnalysis = ({ fileName, resumeText, targetRole }) => {
       score: Math.round(atsScore),
       weakSections,
       atsIssues,
-      strengths: [
-        `Resume shows alignment with ${matchedSkills.length} ${roleLabels[bestRole.role]} keywords`,
-        addDotIfMissing(
-          rawText.length > 500
-            ? "Content length is healthy enough for a one-page ATS scan"
-            : "Content is concise and can still be expanded with stronger detail"
-        ),
-      ],
-      suggestions: [
-        "Prioritize quantifiable achievements in experience and project bullets.",
-        "Mirror the language used in the job role you are targeting.",
-        "Keep formatting simple, consistent, and ATS-friendly.",
-      ],
+      strengths,
+      suggestions: buildSuggestions(bestRole.role, missingSkills, signals, weakSections, random),
     },
     jobMatchAnalysis: {
       roleMatchScore: bestRole.score,
@@ -293,12 +543,12 @@ const generateResumeAnalysis = ({ fileName, resumeText, targetRole }) => {
       missingSkills,
       missingKeywords: missingSkills,
     },
-    roadmap: getRoadmap(bestRole.role, missingSkills),
+    roadmap: getRoadmap(bestRole.role, missingSkills, random),
     resumeRewrite: {
-      improvedSummary: `Targeting ${roleLabels[bestRole.role]} opportunities with a resume that should better highlight ownership, practical skills, and measurable impact.`,
-      bulletSuggestions: getBulletSuggestions(rawText),
+      improvedSummary: `Targeting ${config.label} opportunities with a resume that now needs sharper proof of ${missingSkills[0] || "role-fit strengths"}, stronger metrics, and clearer ownership signals.`,
+      bulletSuggestions: getBulletSuggestions(rawText, bestRole.role, random),
     },
-    interviewPrep: getInterviewPrep(bestRole.role, matchedSkills),
+    interviewPrep: getInterviewPrep(bestRole.role, matchedSkills, missingSkills),
     status: "analyzed",
     weakSectionNotes: notesBySection,
   };
